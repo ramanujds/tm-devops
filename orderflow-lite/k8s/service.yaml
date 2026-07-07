@@ -1,0 +1,34 @@
+# Exposes the OrderFlow-Lite Deployment.
+#
+# NodePort vs ClusterIP tradeoff:
+#   - NodePort (used here) opens a port (30080) directly on every cluster
+#     node, reachable from the host machine without any extra tooling —
+#     convenient for a local kind/Minikube training setup where you just
+#     want `curl` to work with minimal ceremony.
+#   - ClusterIP (the default type) is only reachable from inside the
+#     cluster. It's the right choice once there's an Ingress controller or
+#     `kubectl port-forward`/`minikube service` in front of it, and it's
+#     what you'd actually use in a real cluster — NodePort exposes a port on
+#     every node's network interface, which doesn't scale/secure well
+#     beyond local dev. Swap `type: NodePort` for `type: ClusterIP` (and
+#     drop `nodePort:`) once you introduce an Ingress in a later module.
+#
+# Selector below MUST match the pod labels in deployment.yaml's
+# spec.template.metadata.labels (app: orderflow-lite) — if these drift
+# apart, this Service silently has zero endpoints and every request times
+# out with no obvious error in the Deployment itself. Verify with:
+#   kubectl get endpoints orderflow-lite
+apiVersion: v1
+kind: Service
+metadata:
+  name: orderflow-lite
+  labels:
+    app: orderflow-lite
+spec:
+  type: NodePort
+  selector:
+    app: orderflow-lite
+  ports:
+    - port: 3000
+      targetPort: 3000
+      nodePort: 30080

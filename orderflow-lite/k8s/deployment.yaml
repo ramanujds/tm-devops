@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orderflow-lite
+  labels:
+    app: orderflow-lite
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: orderflow-lite
+  template:
+    metadata:
+      labels:
+        app: orderflow-lite
+    spec:
+      containers:
+        - name: orderflow-lite
+          # Built locally via the repo's Dockerfile. On kind, load it with
+          # `kind load docker-image orderflow-lite:local`; on Minikube, run
+          # `eval $(minikube docker-env)` before `docker build`, or
+          # `minikube image load orderflow-lite:local`. See k8s/README.md.
+          image: orderflow-lite:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: orderflow-config
+            - secretRef:
+                name: orderflow-secret
+          # Liveness: process is up and can respond at all. Does not depend
+          # on MySQL, matching src/app.js's /health handler — a DB outage
+          # should not cause Kubernetes to kill and restart every replica.
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          # Readiness: only receive traffic once /ready confirms a working
+          # DB connection — matters most right after a fresh rollout, before
+          # MySQL has necessarily finished its own startup.
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # Sized for a laptop-scale kind/Minikube cluster running two
+          # replicas of a small Express app, not for production traffic.
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi

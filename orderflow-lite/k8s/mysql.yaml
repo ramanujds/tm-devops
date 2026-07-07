@@ -1,0 +1,180 @@
+# Single-replica MySQL for local dev/training use only. No replication, no
+# backups, no StatefulSet — a Deployment + single PVC is enough to give
+# OrderFlow-Lite somewhere to persist data across pod restarts on a laptop
+# cluster. Do not use this as a template for a production database.
+#
+# NOTE ON LABELS: this MySQL Deployment/Pods are labeled `app: mysql`,
+# deliberately distinct from the OrderFlow-Lite app's `app: orderflow-lite`
+# label (see deployment.yaml/service.yaml). If these labels ever collided,
+# the app's NodePort Service could accidentally load-balance traffic across
+# MySQL pods too — keep them namespaced apart.
+
+# ---------------------------------------------------------------------------
+# Schema bootstrap: mount sql/init.sql into /docker-entrypoint-initdb.d/.
+# The official mysql image auto-runs any *.sql (or *.sh) file found there,
+# in filename order, the FIRST time the container starts with an empty data
+# directory (i.e. an empty PVC).
+#
+# Tradeoff vs. applying sql/init.sql manually (`mysql -h ... < sql/init.sql`
+# or a one-off Job/kubectl exec after the pod is up):
+#   + Zero manual steps — `kubectl apply -f k8s/` alone gets you a ready
+#     schema, which is exactly what you want for a repeatable training lab.
+#   + Schema lives in version control next to the app, and this ConfigMap is
+#     just sql/init.sql copied verbatim, so it's easy to audit that they
+#     match.
+#   - This ConfigMap is a hand-copied duplicate of sql/init.sql, not a
+#     generated one — if you edit sql/init.sql you MUST update this
+#     ConfigMap too, or they will silently drift.
+#   - It ONLY runs once, against an empty data directory. If the PVC already
+#     has data (e.g. you `kubectl apply`'d before fixing a typo in the SQL),
+#     editing this ConfigMap and re-applying does NOT re-run it — you'd need
+#     to delete the PVC (destroying all data) or run future schema changes
+#     as real migrations instead of relying on initdb scripts.
+#   - Not a substitute for a real migration tool once this app is more than
+#     a training toy (e.g. Flyway, node-pg-migrate equivalents, etc).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-init-script
+  labels:
+    app: mysql
+data:
+  init.sql: |
+    -- OrderFlow-Lite schema (MySQL 8.0+)
+    -- Run this once against a fresh database to create the tables the app needs.
+    --
+    -- MySQL has no native UUID column type, so ids are stored as CHAR(36) and
+    -- generated application-side (crypto.randomUUID() in src/routes and
+    -- src/worker) rather than with a SQL default.
+
+    CREATE TABLE IF NOT EXISTS orders (
+      id            CHAR(36) PRIMARY KEY,
+      customer_name TEXT NOT NULL,
+      item          TEXT NOT NULL,
+      quantity      INTEGER NOT NULL CHECK (quantity > 0),
+      -- plain enum-like text (not a MySQL ENUM type) so it's easy to inspect/alter in a training context
+      status        VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed')),
+      created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS order_events (
+      id         CHAR(36) PRIMARY KEY,
+      order_id   CHAR(36) NOT NULL,
+      event_type VARCHAR(50) NOT NULL, -- e.g. "created", "processing_started", "completed", "failed"
+      detail     TEXT,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_order_events_order_id FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX idx_orders_status ON orders(status);
+    CREATE INDEX idx_order_events_order_id ON order_events(order_id);
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pvc
+  labels:
+    app: mysql
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      # Plenty for training data volumes; bump if you plan to leave the
+      # cluster running for a long time.
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  labels:
+    app: mysql
+spec:
+  replicas: 1 # single-replica by design — see file header
+  strategy:
+    type: Recreate # avoid two mysqld processes ever sharing the same PVC
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: orderflow-secret
+                  key: MYSQL_ROOT_PASSWORD
+            - name: MYSQL_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: orderflow-config
+                  key: DB_NAME
+            - name: MYSQL_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: orderflow-config
+                  key: DB_USER
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: orderflow-secret
+                  key: DB_PASSWORD
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+            - name: mysql-init-script
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+          # mysqladmin ping only checks the server is accepting connections,
+          # not that our schema/user exist yet — good enough for a liveness
+          # probe, and readiness gates the app from connecting too early.
+          livenessProbe:
+            exec:
+              command: ["mysqladmin", "ping", "-h", "localhost"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            exec:
+              command: ["mysqladmin", "ping", "-h", "localhost"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: mysql-data
+          persistentVolumeClaim:
+            claimName: mysql-pvc
+        - name: mysql-init-script
+          configMap:
+            name: mysql-init-script
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  labels:
+    app: mysql
+spec:
+  type: ClusterIP
+  selector:
+    app: mysql
+  ports:
+    - port: 3306
+      targetPort: 3306

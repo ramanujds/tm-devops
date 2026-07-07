@@ -1,0 +1,21 @@
+# Non-secret configuration for OrderFlow-Lite and its MySQL dependency.
+# Consumed via envFrom in both k8s/deployment.yaml and k8s/mysql.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: orderflow-config
+  labels:
+    app: orderflow-lite
+data:
+  # "mysql" is the ClusterIP Service name defined in k8s/mysql.yaml —
+  # in-cluster DNS resolves it to the MySQL pod automatically.
+  DB_HOST: "mysql"
+  DB_PORT: "3306"
+  DB_NAME: "orderflow"
+  # DB_USER isn't listed as secret material anywhere in the app (a username
+  # alone isn't sensitive) but the app does require it to connect, so it
+  # lives here rather than being silently missing. It's also reused as
+  # MYSQL_USER by the MySQL Deployment so both sides agree on one identity.
+  DB_USER: "orderflow"
+  PORT: "3000"
+  WORKER_POLL_INTERVAL_MS: "5000"
