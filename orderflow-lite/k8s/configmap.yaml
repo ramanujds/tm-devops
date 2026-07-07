@@ -18,4 +18,4 @@ data:
   # MYSQL_USER by the MySQL Deployment so both sides agree on one identity.
   DB_USER: "orderflow"
   PORT: "3000"
-  WORKER_POLL_INTERVAL_MS: "5000"
+  WORKER_POLLING_INTERVAL_MS: "5000"
