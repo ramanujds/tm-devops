@@ -1,0 +1,9 @@
+node_modules/
+.env
+*.log
+junit.xml
+coverage/
+
+# Local Postgres data if run via docker-compose volume mounts
+pgdata/
+db-data/

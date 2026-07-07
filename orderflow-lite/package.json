@@ -1,0 +1,39 @@
+{
+  "name": "orderflow-lite",
+  "version": "1.0.0",
+  "description": "OrderFlow-Lite: a small Express + Postgres order processing API with an internal background worker, built for a DevOps training course.",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "jest",
+    "test:ci": "jest --ci --reporters=default --reporters=jest-junit"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "mysql2": "^3.11.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "jest-junit": "^16.0.0",
+    "nodemon": "^3.1.4",
+    "supertest": "^7.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "reporters": [
+      "default",
+      [
+        "jest-junit",
+        {
+          "outputDirectory": "./",
+          "outputName": "junit.xml"
+        }
+      ]
+    ]
+  }
+}
