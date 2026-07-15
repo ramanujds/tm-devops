@@ -1,17 +1,5 @@
 # Training Seeds
 
-This repository intentionally contains **three seeded findings** so the
-DevOps training course has real material for the Trivy (dependency/image
-scanning) and GitLeaks (secret scanning) labs. All three are documented here
-so they are easy to find, explain, and remove once the labs are done.
-
-**Do not "fix" these findings without updating or removing this document.**
-Trainees fixing them as part of the lab exercise is expected and fine —
-just don't let a well-meaning cleanup PR silently remove the training
-material outside of the lab context.
-
----
-
 ## Seed 1 — Trivy: known-vulnerable npm dependency
 
 - **What**: `jest-junit` is pinned to an exact version, `16.0.0` (no `^`),
