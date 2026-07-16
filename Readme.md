@@ -66,3 +66,12 @@ docker inspect part-inventory-container
 ```bash
 docker exec -it nginx curl <ip-address>:8080/api/parts
 ```
+
+## Building a docker image from a Dockerfile
+
+```bash
+docker build -t <image_name> <path_to_dockerfile>
+
+docker build -t orderflow-lite -f Dockerfile-basic .
+
+```
