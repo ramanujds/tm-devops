@@ -51,3 +51,18 @@ docker exec -it <container_id> /bin/bash
 docker exec -it part-inventory-container sh
 docker exec -it nginx bash
 ```
+
+
+## Container communication
+
+- get the IP address of a running container
+
+```bash
+docker inspect part-inventory-container
+```
+
+- Execute a command inside a running container
+
+```bash
+docker exec -it nginx curl <ip-address>:8080/api/parts
+```
