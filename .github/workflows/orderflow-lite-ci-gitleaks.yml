@@ -1,0 +1,145 @@
+# Builds on orderflow-lite-ci.yml: same Test / Trivy fs / Docker build /
+# Trivy image / Docker Hub push flow, with a GitLeaks secret scan inserted
+# right after checkout, before anything else runs — mirrors
+# jenkins/Jenkinsfile.05-gitleaks-scan's placement and rationale (a
+# secret-scanning gate should fail fast and cheap, before spending time on
+# a build you're going to throw away anyway).
+#
+# EXPECTED TO FAIL on an unmodified checkout of this repo: TRAINING_SEEDS.md
+# Seeds 2 and 3 (an AWS-style key in scripts/legacy-webhook-notify.sh, plus
+# `changeme` placeholders in k8s/secret.yaml and the READMEs) are exactly
+# what this gate exists to catch. A green run here means those seeds have
+# been remediated or deliberately allowlisted — not that this step is
+# broken. See TRAINING_SEEDS.md for the full remediation/allowlist options.
+
+name: OrderFlow-Lite CI (with GitLeaks)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'orderflow-lite/**'
+      - '.github/workflows/orderflow-lite-ci-gitleaks.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'orderflow-lite/**'
+      - '.github/workflows/orderflow-lite-ci-gitleaks.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_NAME: orderflow-lite
+
+defaults:
+  run:
+    working-directory: orderflow-lite
+
+jobs:
+  gitleaks-test-scan-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # GitLeaks' default `detect` mode scans full git history, not
+          # just the working tree — a shallow (depth-1) checkout would
+          # miss history-only findings.
+          fetch-depth: 0
+
+      # Scans the whole checked-out repo (not just orderflow-lite/), same
+      # scope as the Jenkins stage, since git history isn't confined to
+      # one subdirectory.
+      - name: GitLeaks scan
+        working-directory: ${{ github.workspace }}
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/repo" \
+            zricethezav/gitleaks:latest \
+            detect --source /repo -v \
+            --report-format json --report-path /repo/gitleaks-report.json
+
+      - name: Publish GitLeaks report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report
+          path: gitleaks-report.json
+          if-no-files-found: ignore
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: orderflow-lite/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm run test:ci
+
+      - name: Publish test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-results
+          path: orderflow-lite/junit.xml
+
+      # Scans the full dependency tree (including devDependencies), unlike
+      # the image scan below which only sees what ends up in the
+      # production image. At HIGH,CRITICAL this won't trip on the seeded
+      # moderate-severity jest-junit -> uuid finding (TRAINING_SEEDS.md) —
+      # that's expected, not a bug in this step.
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: orderflow-lite
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Loaded into the local Docker daemon (not pushed yet) so Trivy can
+      # scan it before it ever reaches Docker Hub.
+      - name: Docker build
+        uses: docker/build-push-action@v6
+        with:
+          context: orderflow-lite
+          push: false
+          load: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.run_number }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+
+      # HIGH/CRITICAL fixable findings fail this step, which stops the job
+      # before the push steps below ever run.
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.run_number }}
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      # Only push on main; PR runs everything above but never pushes.
+      - name: Log in to Docker Hub
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Docker push
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.run_number }}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest

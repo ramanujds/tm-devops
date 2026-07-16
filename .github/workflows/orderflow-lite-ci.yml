@@ -1,0 +1,106 @@
+name: OrderFlow-Lite CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'orderflow-lite/**'
+      - '.github/workflows/orderflow-lite-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'orderflow-lite/**'
+      - '.github/workflows/orderflow-lite-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_NAME: orderflow-lite
+
+defaults:
+  run:
+    working-directory: orderflow-lite
+
+jobs:
+  build-test-scan-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: orderflow-lite/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm run test:ci
+
+      - name: Publish test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-results
+          path: orderflow-lite/junit.xml
+
+      # Scans the full dependency tree (including devDependencies), unlike
+      # the image scan below which only sees what ends up in the
+      # production image. At HIGH,CRITICAL this won't trip on the seeded
+      # moderate-severity jest-junit -> uuid finding (TRAINING_SEEDS.md) —
+      # that's expected, not a bug in this step.
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: orderflow-lite
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Loaded into the local Docker daemon (not pushed yet) so Trivy can
+      # scan it before it ever reaches Docker Hub.
+      - name: Docker build
+        uses: docker/build-push-action@v6
+        with:
+          context: orderflow-lite
+          push: false
+          load: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.run_number }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+
+      # HIGH/CRITICAL fixable findings fail this step, which stops the job
+      # before the push steps below ever run.
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.run_number }}
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      # Only push on main; PR runs build and scan only.
+      - name: Log in to Docker Hub
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Docker push
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.run_number }}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
