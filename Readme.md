@@ -75,3 +75,13 @@ docker build -t <image_name> <path_to_dockerfile>
 docker build -t orderflow-lite -f Dockerfile-basic .
 
 ```
+
+## Build Image
+
+```bash
+
+docker build -t <image_name> <path_to_dockerfile>
+
+docker build -t orderflow-lite -f Dockerfile-basic .
+
+```
