@@ -48,6 +48,6 @@ docker rm nginx
 
 ```bash
 docker exec -it <container_id> /bin/bash
-docker exec -it part-inventory-container /bin/bash
-docker exec -it nginx /bin/bash
+docker exec -it part-inventory-container sh
+docker exec -it nginx bash
 ```
