@@ -42,3 +42,12 @@ docker rm <container_id>
 docker rm part-inventory-container
 docker rm nginx
 ```
+
+
+## Get inside a running docker container
+
+```bash
+docker exec -it <container_id> /bin/bash
+docker exec -it part-inventory-container /bin/bash
+docker exec -it nginx /bin/bash
+```
