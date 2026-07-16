@@ -55,11 +55,17 @@ jobs:
       # production image. At HIGH,CRITICAL this won't trip on the seeded
       # moderate-severity jest-junit -> uuid finding (TRAINING_SEEDS.md) —
       # that's expected, not a bug in this step.
+      #
+      # scanners: vuln pins this to dependency vulnerabilities only —
+      # Trivy's fs scan type defaults to ALSO scanning for secrets, which
+      # would otherwise fail this workflow on the seeded AWS key (Seed 2)
+      # that the dedicated GitLeaks workflow exists to catch.
       - name: Trivy filesystem scan
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: orderflow-lite
+          scanners: vuln
           format: table
           severity: HIGH,CRITICAL
           ignore-unfixed: true
@@ -86,6 +92,7 @@ jobs:
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.run_number }}
+          scanners: vuln
           format: table
           severity: HIGH,CRITICAL
           ignore-unfixed: true
