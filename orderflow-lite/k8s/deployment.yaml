@@ -5,7 +5,7 @@ metadata:
   labels:
     app: orderflow-lite
 spec:
-  replicas: 2
+  replicas: 4
   selector:
     matchLabels:
       app: orderflow-lite
@@ -22,7 +22,7 @@ spec:
           # content/local-registry-setup.md for the full setup and why).
           # On kind/Minikube instead, see k8s/README.md for the
           # `kind load docker-image` / `minikube image load` equivalents.
-          image: localhost:5000/orderflow-lite:latest
+          image: ram1uj/orderflow-lite:latest
           # Always (not IfNotPresent): this points at a mutable :latest
           # tag in a local registry you'll keep re-pushing to while
           # iterating — without this, the node would happily keep serving
