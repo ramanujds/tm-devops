@@ -27,7 +27,7 @@ metadata:
   labels:
     app: orderflow-lite
 spec:
-  type: NodePort
+  type: LoadBalancer
   selector:
     app: orderflow-lite
   ports:

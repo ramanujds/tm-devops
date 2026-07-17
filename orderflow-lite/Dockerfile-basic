@@ -1,5 +1,3 @@
-# Minimal Dockerfile — just enough to build and run OrderFlow-Lite.
-# No multi-stage build, no hardening (see the real Dockerfile for that).
 
 FROM node:20-alpine
 
