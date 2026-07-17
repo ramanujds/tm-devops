@@ -32,7 +32,7 @@ RUN rm -rf /usr/local/lib/node_modules/npm \
            /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
            /opt/yarn-v*
 
-USER appuser
+# USER appuser
 
 EXPOSE 3000
 
