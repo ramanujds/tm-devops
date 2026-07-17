@@ -17,8 +17,8 @@ COPY sql ./sql
 FROM node:20-alpine
 
 # Run as a dedicated non-root user rather than the image default (root).
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-RUN apk update && apk upgrade --no-cache
+# RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# RUN apk update && apk upgrade --no-cache
 
 WORKDIR /app
 
@@ -32,7 +32,7 @@ RUN rm -rf /usr/local/lib/node_modules/npm \
            /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
            /opt/yarn-v*
 
-# USER appuser
+USER appuser
 
 EXPOSE 3000
 
