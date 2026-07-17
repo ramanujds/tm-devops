@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OrderFlow-Lite</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f5f6f8;
+      --card: #ffffff;
+      --text: #1a1d23;
+      --muted: #5b6270;
+      --border: #e2e4e9;
+      --accent: #2f6fed;
+      --mono-bg: #f0f2f5;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #14161a;
+        --card: #1d2026;
+        --text: #e7e9ee;
+        --muted: #9aa1ac;
+        --border: #2b2f37;
+        --accent: #6ea1ff;
+        --mono-bg: #111316;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      justify-content: center;
+      padding: 3rem 1.5rem;
+    }
+    main {
+      width: 100%;
+      max-width: 720px;
+    }
+    h1 {
+      font-size: 1.75rem;
+      margin: 0 0 0.35rem;
+    }
+    .subtitle {
+      color: var(--muted);
+      margin: 0 0 2rem;
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 2rem;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #2fb872;
+      display: inline-block;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .card h2 {
+      font-size: 1rem;
+      margin: 0 0 0.75rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    td {
+      padding: 0.45rem 0;
+      vertical-align: top;
+      border-bottom: 1px solid var(--border);
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    .method {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--accent);
+      white-space: nowrap;
+      padding-right: 1rem;
+    }
+    .path {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.85rem;
+      white-space: nowrap;
+      padding-right: 1rem;
+    }
+    .desc {
+      color: var(--muted);
+    }
+    .lock {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    code.inline {
+      background: var(--mono-bg);
+      border-radius: 4px;
+      padding: 0.1rem 0.35rem;
+      font-size: 0.85em;
+    }
+    footer {
+      color: var(--muted);
+      font-size: 0.8rem;
+      text-align: center;
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>OrderFlow-Lite</h1>
+    <p class="subtitle">Express + MySQL order processing API, with an internal background worker.</p>
+    <div class="status"><span class="dot"></span>API running</div>
+
+    <div class="card">
+      <h2>Endpoints</h2>
+      <table>
+        <tr>
+          <td class="method">GET</td>
+          <td class="path">/health</td>
+          <td class="desc">Liveness probe</td>
+        </tr>
+        <tr>
+          <td class="method">GET</td>
+          <td class="path">/ready</td>
+          <td class="desc">Readiness probe (checks MySQL)</td>
+        </tr>
+        <tr>
+          <td class="method">POST</td>
+          <td class="path">/orders</td>
+          <td class="desc">Create an order <span class="lock">requires x-api-key</span></td>
+        </tr>
+        <tr>
+          <td class="method">GET</td>
+          <td class="path">/orders</td>
+          <td class="desc">List orders <span class="lock">requires x-api-key</span></td>
+        </tr>
+        <tr>
+          <td class="method">GET</td>
+          <td class="path">/orders/:id</td>
+          <td class="desc">Get an order + its event history <span class="lock">requires x-api-key</span></td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Quick start</h2>
+      <p class="desc">Every <code class="inline">/orders</code> request requires an <code class="inline">x-api-key</code> header.</p>
+      <p class="desc">See <code class="inline">README.md</code> in the repo for the full API reference and local setup.</p>
+    </div>
+
+    <footer>OrderFlow-Lite &middot; DevOps training case study</footer>
+  </main>
+</body>
+</html>

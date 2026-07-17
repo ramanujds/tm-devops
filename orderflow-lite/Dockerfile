@@ -12,6 +12,7 @@ RUN npm ci --omit=dev
 
 COPY src ./src
 COPY sql ./sql
+COPY public ./public
 
 # ---- Stage 2: runtime ---------------------------------------------------
 FROM node:20-alpine
@@ -25,6 +26,7 @@ WORKDIR /app
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/sql ./sql
+COPY --from=builder /app/public ./public
 COPY package.json ./
 
 RUN rm -rf /usr/local/lib/node_modules/npm \

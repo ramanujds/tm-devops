@@ -1,6 +1,7 @@
 // Builds the Express app but does NOT start listening — kept separate from
 // src/index.js so tests can import the app directly (via supertest) without
 // binding a port or starting the background worker.
+const path = require("path");
 const express = require("express");
 const { pool } = require("./db");
 const { requireApiKey } = require("./middleware/auth");
@@ -9,6 +10,9 @@ const ordersRouter = require("./routes/orders");
 const app = express();
 
 app.use(express.json());
+
+// Static landing page at "/" — describes the API, links to nothing else.
+app.use(express.static(path.join(__dirname, "..", "public")));
 
 // Liveness probe: process is up and able to respond. Deliberately does NOT
 // touch the database — a slow/down DB should not cause Kubernetes to kill
