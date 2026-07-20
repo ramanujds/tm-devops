@@ -1,3 +1,5 @@
+A sample standard 3-repo CI/CD pipeline diagram is shown below:
+
 ![CiCd](image.png)
 
 
